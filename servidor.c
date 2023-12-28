@@ -23,13 +23,11 @@
 int crearsockTCP (int port, struct sockaddr_in servaddr){
     /* socket creation */
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == -1)
-    {
+    if (sockfd == -1){
         fprintf(stderr, "[SERVER-error]: socket TCP creation failed. %d: %s \n", errno, strerror( errno ));
         return -1;
     }
-    else
-    {
+    else{
         printf("[SERVER]: Socket TCP successfully created..\n");
     }
     /* clear structure */
@@ -40,24 +38,19 @@ int crearsockTCP (int port, struct sockaddr_in servaddr){
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port        = htons(port);
     /* Bind socket */
-    if ((bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) != 0)
-    {
+    if ((bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) != 0){
         fprintf(stderr, "[SERVER-error]: socket TCP bind failed. %d: %s \n", errno, strerror( errno ));
         return -1;
     }
-    else
-    {
+    else{
         printf("[SERVER]: Socket TCP successfully binded \n");
     }
  
     /* Listen */
-    if ((listen(sockfd, BACKLOG)) != 0)
-    {
+    if ((listen(sockfd, BACKLOG)) != 0){
         fprintf(stderr, "[SERVER-error]: socket TCP listen failed. %d: %s \n", errno, strerror( errno ));
         return -1;
-    }
-    else
-    {
+    }else{
         printf("[SERVER]: Listening TCP on SERV_PORT %d \n\n", ntohs(servaddr.sin_port) );
     }
     return sockfd;
@@ -89,6 +82,35 @@ int crearSocketUDP(const char *serverIP, int port, struct sockaddr_in servidorAd
         exit(-1);
     }
     return udpSocket;
+}
+
+struct Usuario {
+    char *nombre;
+    char *contrasena;
+};
+int autenticarUsuario(const char *usuario, const char *contrasena) {
+    FILE *archivo = fopen("usuarios.txt", "r");
+
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo 'usuarios.txt'");
+        return -1;  // Indica un error al abrir el archivo
+    }
+
+    struct Usuario usuarioActual;
+
+    // Leer los usuarios del archivo
+    while (fscanf(archivo, "%ms %ms", &usuarioActual.nombre, &usuarioActual.contrasena) == 2) {
+        if (strcmp(usuario, usuarioActual.nombre) == 0 && strcmp(contrasena, usuarioActual.contrasena) == 0) {
+            free(usuarioActual.nombre);
+            free(usuarioActual.contrasena);
+            fclose(archivo);
+            return 1;  // Usuario y contraseña coinciden
+        }
+        free(usuarioActual.nombre);
+        free(usuarioActual.contrasena);
+    }
+    fclose(archivo);
+    return 0;  // Usuario o contraseña no encontrados
 }
 
 
@@ -165,18 +187,37 @@ void main (int argc, char *argv[]){
                         fprintf(stderr, "[nieto, SERVER-error]: sock_service_tcp cannot be read. %d: %s \n", errno, strerror( errno ));
                         break;
                     }else if (len_rx == 0) {
-        		// El socket se cerró, salir del bucle
-        		break;
-        	    }else{
+                        // El socket se cerró, salir del bucle
+                        break;
+                    }else{
                     	printf("SERVER:Received: %s \n", buff_rx);
                         if(sesion == 0){ /* primer envio comprobar logg */
                             /* falta if comprobando si loggin es correcto */
-                            sesion = 1;
-                            strcpy(buff_tx, "Logg correcto");
-                            write(sock_service_tcp, buff_tx, sizeof(buff_tx));    
+                            // Asegúrate de que la cadena esté terminada con null
+                            buff_rx[len_rx] = '\0';
+                            // Usar strtok para dividir la cadena en usuario y contraseña
+                            char *usuario;
+                            char *contrasena;
+                            usuario = strtok(buff_rx, "-");
+                            contrasena = strtok(NULL, "-");
+                            if (usuario != NULL && contrasena != NULL) {
+                                int resultado = autenticarUsuario(usuario, contrasena);
+                                 if (resultado == 1) {
+                                    sesion = 1;
+                                    strcpy(buff_tx, "[nieto]: Logg correcto \n");
+                                    write(sock_service_tcp, buff_tx, sizeof(buff_tx)); 
+                                 }else if(resultado == 0){
+                                    printf("[nieto]: Logg incorrecto \n");
+                                 }else{
+                                    printf("[nieto]: autenticarUsuario devuelve error  \n");
+                                 }
+                            }
                         }else{
-                            /* si logg ok abro puerta ? */
-                            const char *message = "quien es el cliente y que puerta abre";
+                            /* si logg intento abrir puerta */
+
+
+                            /* si abro puerta */
+                            const char *message = "%s",usuario;
                             // Escribir en la tubería si abro puerta
                             ssize_t bytesWritten = write(tub[1], message, strlen(message));
                             if (bytesWritten == -1) {
@@ -213,7 +254,7 @@ void main (int argc, char *argv[]){
                     
                 }
                 fputs(buff_tx, archivo);
-		fputc('\n', archivo);
+		        fputc('\n', archivo);
                 fclose(archivo);
                 printf("[padre] Mensaje recibido del nieto: %s\n", buff_tx);
             }
@@ -222,7 +263,6 @@ void main (int argc, char *argv[]){
 
     }
 }
-
 
 
 
