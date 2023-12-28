@@ -102,7 +102,7 @@ void main (int argc, char *argv[]){
         // Verificar si la creación fue exitosa
         if (archivo == NULL) {
             perror("[SERVER-error] Error al crear el archivo .txt");
-            return 1; // Código de error
+            exit -1; // Código de error
         }
         printf("[SERVER] Archivo 'historial.txt' creado exitosamente.\n");
         // Cerrar el archivo después de crearlo
@@ -213,6 +213,7 @@ void main (int argc, char *argv[]){
                     
                 }
                 fputs(buff_tx, archivo);
+		fputc('\n', archivo);
                 fclose(archivo);
                 printf("[padre] Mensaje recibido del nieto: %s\n", buff_tx);
             }
@@ -221,7 +222,6 @@ void main (int argc, char *argv[]){
 
     }
 }
-
 
 
 
