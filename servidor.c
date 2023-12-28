@@ -93,6 +93,27 @@ int crearSocketUDP(const char *serverIP, int port, struct sockaddr_in servidorAd
 
 
 void main (int argc, char *argv[]){
+    const char *nombreArchivo = "historial.txt";
+    // Intentar abrir el archivo en modo lectura
+    FILE *archivo = fopen(nombreArchivo, "r");
+    if (archivo == NULL) {// Verificar si el archivo existe
+        // El archivo no existe, así que intentamos crearlo
+        archivo = fopen(nombreArchivo, "w");
+        // Verificar si la creación fue exitosa
+        if (archivo == NULL) {
+            perror("[SERVER-error] Error al crear el archivo .txt");
+            return 1; // Código de error
+        }
+        printf("[SERVER] Archivo 'historial.txt' creado exitosamente.\n");
+        // Cerrar el archivo después de crearlo
+        fclose(archivo);
+    } else {
+        // El archivo ya existe, no hacemos nada
+        printf("[SERVER] El archivo 'historial.txt' ya existe.\n");
+        // Cerrar el archivo si estaba abierto en modo lectura
+        fclose(archivo);
+    }
+
     //sem_t sem;
     /* Servidor Internet en el puerto TCP número 4321 */
     int sock_escucha_tcp, sock_service_tcp;
@@ -129,7 +150,6 @@ void main (int argc, char *argv[]){
                 fprintf(stderr, "[hijo SERVER-error]: connection not accepted. %d: %s \n", errno, strerror( errno ));
                 close(sock_service_tcp);
                 close(sock_escucha_tcp);
-                fprintf(stderr, "Fallo en la escucha tcp \n");
                 exit(-1);
             }
             if (fork() == 0){
@@ -187,6 +207,13 @@ void main (int argc, char *argv[]){
                 exit(EXIT_FAILURE);
             }else{
                 /* escribo en un txt cliente , puerta abiuerta y fecha , hora, min */
+                FILE *archivo = fopen(nombreArchivo, "a");
+                if (archivo == NULL) {
+                    perror("[padre] Error al abrir el archivo");
+                    
+                }
+                fputs(buff_tx, archivo);
+                fclose(archivo);
                 printf("[padre] Mensaje recibido del nieto: %s\n", buff_tx);
             }
         }
@@ -194,7 +221,6 @@ void main (int argc, char *argv[]){
 
     }
 }
-
 
 
 
