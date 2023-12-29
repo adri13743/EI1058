@@ -84,10 +84,7 @@ int crearSocketUDP(const char *serverIP, int port, struct sockaddr_in servidorAd
     return udpSocket;
 }
 
-struct Usuario {
-    char *nombre;
-    char *contrasena;
-};
+
 int autenticarUsuario(const char *usuario, const char *contrasena) {
     FILE *archivo = fopen("usuarios.txt", "r");
 
@@ -96,21 +93,27 @@ int autenticarUsuario(const char *usuario, const char *contrasena) {
         return -1;  // Indica un error al abrir el archivo
     }
 
-    struct Usuario usuarioActual;
+    char usuario2[100];
+    char contrasena2[100];
+    int resultado = 0;  // Inicializamos resultado como usuario no encontrado
 
-    // Leer los usuarios del archivo
-    while (fscanf(archivo, "%ms %ms", &usuarioActual.nombre, &usuarioActual.contrasena) == 2) {
-        if (strcmp(usuario, usuarioActual.nombre) == 0 && strcmp(contrasena, usuarioActual.contrasena) == 0) {
-            free(usuarioActual.nombre);
-            free(usuarioActual.contrasena);
-            fclose(archivo);
-            return 1;  // Usuario y contraseña coinciden
+    // Leer los usuarios y contraseñas del archivo
+    while (fscanf(archivo, "%99[^-]-%99[^\n]", usuario2, contrasena2) == 2) {
+        printf("Usuario: %s, Contraseña: %s\n", usuario, contrasena);
+        if (strcmp(usuario, usuario2) == 0) {
+            // Aquí puedes añadir una impresión adicional si es necesario
+            if (strcmp(contrasena, contrasena2) == 0) {
+                resultado = 1;  // Usuario y contraseña coinciden
+            } else {
+                printf("Contraseña incorrecta para el usuario '%s'\n", usuario);
+                resultado = 2;  // Contraseña incorrecta
+            }
+            break;  // Salir del bucle después de encontrar el usuario
         }
-        free(usuarioActual.nombre);
-        free(usuarioActual.contrasena);
     }
+
     fclose(archivo);
-    return 0;  // Usuario o contraseña no encontrados
+    return resultado;  // Devolver el resultado
 }
 
 
@@ -179,6 +182,8 @@ void main (int argc, char *argv[]){
                 close(tub[0]);/* nieto no usa tuberia para leer */
                 len_rx = 1;
                 int sesion = 0;
+		char usuario[100];
+                char contrasena[100];
                 while(len_rx != 0){  /* read data from a client socket till it is closed */  
                     /* read client message, copy it into buffer */
                     len_rx = read(sock_service_tcp, buff_rx, sizeof(buff_rx));  
@@ -190,18 +195,28 @@ void main (int argc, char *argv[]){
                         // El socket se cerró, salir del bucle
                         break;
                     }else{
+                    	
                     	printf("SERVER:Received: %s \n", buff_rx);
                         if(sesion == 0){ /* primer envio comprobar logg */
-                            /* falta if comprobando si loggin es correcto */
-                            // Asegúrate de que la cadena esté terminada con null
-                            buff_rx[len_rx] = '\0';
-                            // Usar strtok para dividir la cadena en usuario y contraseña
-                            char *usuario;
-                            char *contrasena;
-                            usuario = strtok(buff_rx, "-");
-                            contrasena = strtok(NULL, "-");
+                            // falta if comprobando si loggin es correcto
+			    // Asegúrate de que la cadena esté terminada con null
+			    // Usar strtok para dividir la cadena en usuario y contraseña
+			    buff_rx[len_rx] = '\0';
+			    strncpy(usuario, strtok(buff_rx, "-"), sizeof(usuario) - 1);
+			    usuario[sizeof(usuario) - 1] = '\0';  // Asegurarse de que la cadena esté terminada con null
+
+			    printf("usuario: %s\n", usuario);
+
+			    // Continuar con la obtención de la contraseña
+			    char *contrasena_temp = strtok(NULL, "-");
+			    if (contrasena_temp != NULL) {
+				strncpy(contrasena, contrasena_temp, sizeof(contrasena) - 1);
+				contrasena[sizeof(contrasena) - 1] = '\0';  // Asegurarse de que la cadena esté terminada con null
+				printf("contrasena: %s\n", contrasena);
+			    }
                             if (usuario != NULL && contrasena != NULL) {
                                 int resultado = autenticarUsuario(usuario, contrasena);
+                                printf("usuario: %s\n", usuario);
                                  if (resultado == 1) {
                                     sesion = 1;
                                     strcpy(buff_tx, "[nieto]: Logg correcto \n");
@@ -217,9 +232,10 @@ void main (int argc, char *argv[]){
 
 
                             /* si abro puerta */
-                            const char *message = "%s",usuario;
-                            // Escribir en la tubería si abro puerta
-                            ssize_t bytesWritten = write(tub[1], message, strlen(message));
+                           
+                            
+                            // Escribir en la tubería si abro puerta quien la abre
+                            ssize_t bytesWritten = write(tub[1], usuario, strlen(usuario));
                             if (bytesWritten == -1) {
                                 perror("[nieto] Error en la escritura en la tubería");
                             }else{
@@ -263,7 +279,6 @@ void main (int argc, char *argv[]){
 
     }
 }
-
 
 
 
