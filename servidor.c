@@ -13,6 +13,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 #define PORTTCP 8080 /* Puerto TCP */
 #define PORTUDP 9009 /* Puerto UDP */
 #define TAM_BUFFER 1024 /* Puerto UDP TAM BUFF */
@@ -148,7 +149,9 @@ void main (int argc, char *argv[]){
     char buff_rx[BUF_SIZE];   /* buffers for reception  */
     int port_tcp = PORTTCP;
     struct sockaddr_in servidorAddrUDP;
-    char buffer[TAM_BUFFER];
+    int len_br, len_bx = 0;
+    char buffer_t[TAM_BUFFER];
+    char buffer_x[TAM_BUFFER];
     /* Servidor Internet en el puerto UDP número 1234 */
     const char *serverIP = "192.168.31.132"; /* Cambiar con la ip del ESP32*/
     int esp32Socket; /* UDP */
@@ -184,6 +187,7 @@ void main (int argc, char *argv[]){
                 int sesion = 0;
 		char usuario[100];
                 char contrasena[100];
+                char msg[100];
                 while(len_rx != 0){  /* read data from a client socket till it is closed */  
                     /* read client message, copy it into buffer */
                     len_rx = read(sock_service_tcp, buff_rx, sizeof(buff_rx));  
@@ -205,14 +209,14 @@ void main (int argc, char *argv[]){
 			    strncpy(usuario, strtok(buff_rx, "-"), sizeof(usuario) - 1);
 			    usuario[sizeof(usuario) - 1] = '\0';  // Asegurarse de que la cadena esté terminada con null
 
-			    printf("usuario: %s\n", usuario);
+			    //printf("usuario: %s\n", usuario);
 
 			    // Continuar con la obtención de la contraseña
 			    char *contrasena_temp = strtok(NULL, "-");
 			    if (contrasena_temp != NULL) {
 				strncpy(contrasena, contrasena_temp, sizeof(contrasena) - 1);
 				contrasena[sizeof(contrasena) - 1] = '\0';  // Asegurarse de que la cadena esté terminada con null
-				printf("contrasena: %s\n", contrasena);
+				//printf("contrasena: %s\n", contrasena);
 			    }
                             if (usuario != NULL && contrasena != NULL) {
                                 int resultado = autenticarUsuario(usuario, contrasena);
@@ -229,20 +233,50 @@ void main (int argc, char *argv[]){
                             }
                         }else{
                             /* si logg intento abrir puerta */
+			    strncpy(msg, buff_rx, sizeof(msg) - 1);
+			    printf("SERVER: strncpy: %s \n", msg);
+			    if(strcmp(msg, "abrir puerta") == 0){
+			    	strcpy(buffer_t, "a23GF23cc");
+				if (write(esp32Socket, buffer_t, strlen(buffer_t)) == -1) {
+				    perror("[nieto, ERROR-SERVIDOR]: Fallo al escribir en esp32Socket");
+				    // Manejar el error adecuadamente
+				    break;
+				}
 
+				len_bx = read(esp32Socket, buffer_x, sizeof(buffer_x));
+				if (len_bx == -1) {
+				    perror("[nieto, ERROR-SERVIDOR]: Fallo al leer desde esp32Socket");
+				    // Manejar el error adecuadamente
+				    break;
+				}
 
+				if (strcmp(buffer_x, "okko") == 0) {
+				    ssize_t bytesWritten = write(tub[1], usuario, strlen(usuario));
+				    if (bytesWritten == -1) {
+					perror("[nieto] Error al escribir en la tubería");
+					// Manejar el error adecuadamente
+				    } else {
+					strcpy(buff_tx, "puerta abierta");
+					if (write(sock_service_tcp, buff_tx, sizeof(buff_tx)) == -1) {
+					    perror("[nieto] Fallo al escribir en sock_service_tcp");
+					    // Manejar el error adecuadamente
+					}
+					// sem_post(&sem);  // Descomentar si estás usando semáforos
+				    }
+				} else {
+				    printf("[nieto]: Respuesta inesperada desde ESP32: %s\n", buffer_x);
+				}
+			    	
+			    }else{
+			        printf("[nieto]: mensaje para abrir la puerta incorrecto del cliente \n");
+			    	strcpy(buff_tx, "mensaje para abrir la puerta incorrecto");
+			    	write(sock_service_tcp, buff_tx, sizeof(buff_tx)); 
+			    }
                             /* si abro puerta */
                            
                             
                             // Escribir en la tubería si abro puerta quien la abre
-                            ssize_t bytesWritten = write(tub[1], usuario, strlen(usuario));
-                            if (bytesWritten == -1) {
-                                perror("[nieto] Error en la escritura en la tubería");
-                            }else{
-                            	strcpy(buff_tx, "puerta abierta");
-                            	write(sock_service_tcp, buff_tx, sizeof(buff_tx)); 
-                            	//sem_post(&sem);
-                            }
+                           
                         }
                     }            
                 }
@@ -254,30 +288,40 @@ void main (int argc, char *argv[]){
             }
         }
     }else{
-        /* padre */
-        close(tub[1]);/* padre no usa tuberias para escribir */
-        close(sock_escucha_tcp);
-        while(1){
-            ssize_t bytesRead = read(tub[0], buff_tx, sizeof(buff_tx));
-            if (bytesRead == -1) {
-                perror("[padre] Error en la lectura de la tubería");
-                exit(EXIT_FAILURE);
-            }else{
-                /* escribo en un txt cliente , puerta abiuerta y fecha , hora, min */
-                FILE *archivo = fopen(nombreArchivo, "a");
-                if (archivo == NULL) {
-                    perror("[padre] Error al abrir el archivo");
-                    
-                }
-                fputs(buff_tx, archivo);
-		        fputc('\n', archivo);
-                fclose(archivo);
-                printf("[padre] Mensaje recibido del nieto: %s\n", buff_tx);
-            }
-        }
+	    /* padre */
+	    close(tub[1]);/* padre no usa tuberias para escribir */
+	    close(sock_escucha_tcp);
 
-
-    }
+	    while (1) {
+		ssize_t bytesRead = read(tub[0], buff_tx, sizeof(buff_tx));
+		if (bytesRead == -1) {
+		    perror("[padre] Error en la lectura de la tubería");
+		    exit(EXIT_FAILURE);
+		} else {
+		    // Get current time
+		    time_t rawtime;
+		    struct tm *info;
+		    time(&rawtime);
+		    info = localtime(&rawtime);
+		    // Formatear la hora como hh:mm:ss
+		    char timestamp[20];
+		    strftime(timestamp, sizeof(timestamp), "%H:%M:%S", info);
+		    time_t tiempoActual;
+		    time(&tiempoActual);
+		    info = localtime(&tiempoActual);
+		    printf("Fecha actual: %02d/%02d/%d\n", info->tm_mday, info->tm_mon + 1, info->tm_year + 1900);
+		    // Abrir el archivo en modo append
+		    FILE *archivo = fopen(nombreArchivo, "a");
+		    if (archivo == NULL) {
+		        perror("[padre] Error al abrir el archivo");
+		    }
+		    // Escribir en el archivo con el formato deseado
+		    fprintf(archivo, "El usuario: %s, abre la puerta %d a las: %s el dia : %02d/%02d/%d\n",  buff_tx, esp32Socket, timestamp, info->tm_mday, info->tm_mon + 1, info->tm_year + 1900);
+		    fclose(archivo);
+		    printf("[padre] Mensaje recibido del nieto: %s\n", buff_tx);
+		}
+	    }
+	}
 }
 
 
