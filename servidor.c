@@ -14,7 +14,7 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#define PORTTCP 8083 /* Puerto TCP */
+#define PORTTCP 8080 /* Puerto TCP */
 #define PORTUDP 9009 /* Puerto UDP */
 #define TAM_BUFFER 1024 /* Puerto UDP TAM BUFF */
 #define BUF_SIZE   1024 /* Puerto TCP TAM BUFF */
@@ -97,7 +97,8 @@ int autenticarUsuario(const char *usuario, const char *contrasena) {
     char usuario2[100];
     char contrasena2[100];
     int resultado = 0;  // Inicializamos resultado como usuario no encontrado
-
+    printf("Contraseña: '%s'\n", contrasena);
+    printf("Usuario: '%s'\n", usuario);
     // Leer los usuarios y contraseñas del archivo
     while (fscanf(archivo, "%99[^-]-%99[^\n]", usuario2, contrasena2) == 2) {
         
@@ -288,7 +289,7 @@ void main (int argc, char *argv[]){
 						                    write(sock_service_tcp, buff_tx, sizeof(buff_tx)); 					  
 								    close(sock_service_tcp);
 							   }else{
-							      strcpy(buff_tx, "Logg y UDP correctos \n");
+							      strcpy(buff_tx, "Logg y UDP correctos");
 						              write(sock_service_tcp, buff_tx, sizeof(buff_tx)); 	
 							      sesion = 1;
 							   }
