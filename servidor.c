@@ -97,6 +97,8 @@ int autenticarUsuario(const char *usuario, const char *contrasena) {
     char usuario2[100];
     char contrasena2[100];
     int resultado = 0;  // Inicializamos resultado como usuario no encontrado
+    printf("Contraseña: '%s'\n", contrasena);
+    printf("Usuario: '%s'\n", usuario);
     // Leer los usuarios y contraseñas del archivo
     while (fscanf(archivo, "%99[^-]-%99[^\n]", usuario2, contrasena2) == 2) {
         
@@ -147,7 +149,45 @@ int autenticarIP(const char *ip) {
     return resultado;  // Devolver el resultado
 }
 
-char *contrasenaIP(const char *ip) {
+char* encrypt_cesar(const char *input, int key) {
+    size_t len = strlen(input);
+    char *result = (char *)malloc(len + 1);
+
+    for (size_t i = 0; i < len; i++) {
+        if ((input[i] >= 'A' && input[i] <= 'Z') || (input[i] >= 'a' && input[i] <= 'z')) {
+            char base = (input[i] >= 'A' && input[i] <= 'Z') ? 'A' : 'a';
+            result[i] = (char)((input[i] - base + key) % 26 + base);
+        } else if (input[i] >= '0' && input[i] <= '9') {
+            result[i] = (char)((input[i] - '0' + key) % 10 + '0');
+        } else {
+            result[i] = input[i];
+        }
+    }
+
+    result[len] = '\0';
+    return result;
+}
+
+char* decrypt_cesar(const char *input, int key) {
+    size_t len = strlen(input);
+    char *result = (char *)malloc(len + 1);
+
+    for (size_t i = 0; i < len; i++) {
+        if ((input[i] >= 'A' && input[i] <= 'Z') || (input[i] >= 'a' && input[i] <= 'z')) {
+            char base = (input[i] >= 'A' && input[i] <= 'Z') ? 'A' : 'a';
+            result[i] = (char)((input[i] - base - key + 26) % 26 + base);
+        } else if (input[i] >= '0' && input[i] <= '9') {
+            result[i] = (char)((input[i] - '0' - key + 10) % 10 + '0');
+        } else {
+            result[i] = input[i];
+        }
+    }
+
+    result[len] = '\0';
+    return result;
+}
+
+char* contrasenaIP(const char *ip) {
     FILE *archivo = fopen("puertas.txt", "r");
 
     if (archivo == NULL) {
@@ -157,12 +197,17 @@ char *contrasenaIP(const char *ip) {
 
     char buffer_ip[100];  // Declaramos buffer_ip aquí
     static char contrasena_puerta[100];  // Se utiliza static para evitar problemas de ámbito
+    int key;  // Variable para almacenar la clave
 
-    // Leer las direcciones IP y contraseñas de las puertas del archivo
-    while (fscanf(archivo, "%99[^-]-%99[^\n]", buffer_ip, contrasena_puerta) == 2) {
+    // Leer las direcciones IP, contraseñas y claves de las puertas del archivo
+    while (fscanf(archivo, "%99[^-]-%99[^-]-%d", buffer_ip, contrasena_puerta, &key) == 3) {
         if (strcmp(ip, buffer_ip) == 0) {
             fclose(archivo);
-            return contrasena_puerta;  // Devolver la contraseña
+
+            // Aplicar cifrado César al hash
+            char *hashed_password = encrypt_cesar(contrasena_puerta, key);
+
+            return hashed_password;  // Devolver el hash cifrado
         }
 
         // Limpiar el buffer para la siguiente iteración
@@ -321,23 +366,22 @@ void main (int argc, char *argv[]){
 				if (contrasena1 != NULL) {
 					strcpy(buffer_t, contrasena1);
 					if (write(esp32Socket, buffer_t, strlen(buffer_t)) == -1) {
-					    perror("[nieto, ERROR-SERVIDOR]: Fallo al escribir en esp32Socket");
+					    printf("[nieto, ERROR-SERVIDOR]: Fallo al escribir en esp32Socket");
 					    // Manejar el error adecuadamente
 					    break;
 					}
 				}else{
-				     perror("[nieto, ERROR-SERVIDOR]: Fallo encontrar la contrasena");
+				     printf("[nieto, ERROR-SERVIDOR]: Fallo encontrar la contrasena");
 					    // Manejar el error adecuadamente
 			             break;
 				}
 			    	
-
-				
 				int okk = 0;
 				while(okk == 0){
 					len_bx = read(esp32Socket, buffer_x, sizeof(buffer_x));
+					printf("OPA: %d", buffer_x);
 					if (len_bx == -1) {
-					    perror("[nieto, ERROR-SERVIDOR]: Fallo al leer desde esp32Socket");
+					    printf("[nieto, ERROR-SERVIDOR]: Fallo al leer desde esp32Socket");
 					    // Manejar el error adecuadamente
 					    break;
 					}
@@ -346,12 +390,12 @@ void main (int argc, char *argv[]){
 					    snprintf(usuario_ip, sizeof(usuario_ip), "%s-%s", usuario, ipp);
 					    ssize_t bytesWritten = write(tub[1], usuario_ip, strlen(usuario_ip));
 					    if (bytesWritten == -1) {
-						perror("[nieto] Error al escribir en la tubería");
+						printf("[nieto] Error al escribir en la tubería");
 						// Manejar el error adecuadamente
 					    } else {
 						strcpy(buff_tx, "puerta abierta");
 						if (write(sock_service_tcp, buff_tx, sizeof(buff_tx)) == -1) {
-						    perror("[nieto] Fallo al escribir en sock_service_tcp");
+						    printf("[nieto] Fallo al escribir en sock_service_tcp");
 						    // Manejar el error adecuadamente
 						}else{
 						  
@@ -360,17 +404,16 @@ void main (int argc, char *argv[]){
 					    }
 					} else {
 						if (strncmp(buffer_x, "no",2) == 0) {
-							  strcpy(buff_tx, "contra incorrecta");
+							  strcpy(buff_tx, "contrasena incorrecta");
 							if (write(sock_service_tcp, buff_tx, sizeof(buff_tx)) == -1) {
-							    perror("[nieto] Fallo al escribir en sock_service_tcp");
+							    printf("[nieto] Fallo al escribir en sock_service_tcp");
 							    // Manejar el error adecuadamente
 							}
 					    		okk=2;
 					    	}else{
-					    	
 					    		strcpy(buff_tx, "error  esp32");
 							if (write(sock_service_tcp, buff_tx, sizeof(buff_tx)) == -1) {
-							    perror("[nieto] Fallo al escribir en sock_service_tcp");
+							    printf("[nieto] Fallo al escribir en sock_service_tcp");
 							    // Manejar el error adecuadamente
 							}
 					    
