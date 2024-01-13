@@ -97,8 +97,6 @@ int autenticarUsuario(const char *usuario, const char *contrasena) {
     char usuario2[100];
     char contrasena2[100];
     int resultado = 0;  // Inicializamos resultado como usuario no encontrado
-    printf("Contraseña: '%s'\n", contrasena);
-    printf("Usuario: '%s'\n", usuario);
     // Leer los usuarios y contraseñas del archivo
     while (fscanf(archivo, "%99[^-]-%99[^\n]", usuario2, contrasena2) == 2) {
         
