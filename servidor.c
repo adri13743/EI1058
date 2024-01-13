@@ -14,7 +14,7 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#define PORTTCP 8080 /* Puerto TCP */
+#define PORTTCP 8081 /* Puerto TCP */
 #define PORTUDP 9009 /* Puerto UDP */
 #define TAM_BUFFER 1024 /* Puerto UDP TAM BUFF */
 #define BUF_SIZE   1024 /* Puerto TCP TAM BUFF */
@@ -360,7 +360,7 @@ void main (int argc, char *argv[]){
                             /* si logg ok intento abrir puerta */
 			    strncpy(msg, buff_rx, sizeof(msg) - 1);
 			    msg[sizeof(msg) - 1] = '\0';
-			    
+			    printf("[SERVER:Received222]: %s \n", buff_rx);
 			    if(strcmp(msg, "abrir puerta") == 0){
 				char *contrasena1 = contrasenaIP(ipp);
 				if (contrasena1 != NULL) {
@@ -375,54 +375,51 @@ void main (int argc, char *argv[]){
 					    // Manejar el error adecuadamente
 			             break;
 				}
-			    	
-				int okk = 0;
-				while(okk == 0){
-					len_bx = read(esp32Socket, buffer_x, sizeof(buffer_x));
-					printf("OPA: %d", buffer_x);
-					if (len_bx == -1) {
-					    printf("[nieto, ERROR-SERVIDOR]: Fallo al leer desde esp32Socket");
-					    // Manejar el error adecuadamente
-					    break;
-					}
-					if (strncmp(buffer_x, "ok", 2) == 0) {
-					    char usuario_ip[200];  // Suficientemente grande para contener usuario e IP
-					    snprintf(usuario_ip, sizeof(usuario_ip), "%s-%s", usuario, ipp);
-					    ssize_t bytesWritten = write(tub[1], usuario_ip, strlen(usuario_ip));
-					    if (bytesWritten == -1) {
-						printf("[nieto] Error al escribir en la tubería");
+				memset(buffer_x, 0, sizeof(buffer_x));
+			    	len_bx = read(esp32Socket, buffer_x, sizeof(buffer_x));
+				printf("[SERVER:ReceivedOPA]: %s \n", buffer_x);
+				
+				if (len_bx == -1) {
+			        	printf("[nieto, ERROR-SERVIDOR]: Fallo al leer desde esp32Socket");
+					// Manejar el error adecuadamente
+					break;
+				}
+				if (strncmp(buffer_x, "ok", 2) == 0) {
+					printf("[SERVER:ReceivAPA]: %s \n", buffer_x);
+			        	char usuario_ip[200];  // Suficientemente grande para contener usuario e IP
+					snprintf(usuario_ip, sizeof(usuario_ip), "%s-%s", usuario, ipp);
+				        ssize_t bytesWritten = write(tub[1], usuario_ip, strlen(usuario_ip));
+				        if (bytesWritten == -1) {
+						printf("[nieto] Error al escribir en la tubería \n");
 						// Manejar el error adecuadamente
 					    } else {
 						strcpy(buff_tx, "puerta abierta");
 						if (write(sock_service_tcp, buff_tx, sizeof(buff_tx)) == -1) {
-						    printf("[nieto] Fallo al escribir en sock_service_tcp");
+						    printf("[nieto] Fallo al escribir en sock_service_tcp \n");
 						    // Manejar el error adecuadamente
-						}else{
-						  
-						  okk = 1;
 						}
 					    }
 					} else {
 						if (strncmp(buffer_x, "no",2) == 0) {
 							  strcpy(buff_tx, "contrasena incorrecta");
 							if (write(sock_service_tcp, buff_tx, sizeof(buff_tx)) == -1) {
-							    printf("[nieto] Fallo al escribir en sock_service_tcp");
+							    printf("[nieto] Fallo al escribir en sock_service_tcp \n");
 							    // Manejar el error adecuadamente
 							}
-					    		okk=2;
+					    		
 					    	}else{
 					    		strcpy(buff_tx, "error  esp32");
 							if (write(sock_service_tcp, buff_tx, sizeof(buff_tx)) == -1) {
-							    printf("[nieto] Fallo al escribir en sock_service_tcp");
+							    printf("[nieto] Fallo al escribir en sock_service_tcp \n");
 							    // Manejar el error adecuadamente
 							}
 					    
 					    	}
 					}
-				}
+				
 			    	
 			    }else{
-			    printf("SERVER: cerrar?: %s \n", msg);
+			    printf("SERVER: cerrar: %s \n", msg);
 			    if(strcmp(msg, "cerrar sesion") == 0){
 			    	strcpy(buff_tx, "sesion cerrada");
 			    	write(sock_service_tcp, buff_tx, sizeof(buff_tx)); 
