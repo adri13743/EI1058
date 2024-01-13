@@ -14,7 +14,7 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#define PORTTCP 8081 /* Puerto TCP */
+#define PORTTCP 8080 /* Puerto TCP */
 #define PORTUDP 9009 /* Puerto UDP */
 #define TAM_BUFFER 1024 /* Puerto UDP TAM BUFF */
 #define BUF_SIZE   1024 /* Puerto TCP TAM BUFF */
