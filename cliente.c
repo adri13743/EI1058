@@ -9,9 +9,9 @@
 #include <stdbool.h>
 
 #define SERVER_ADDRESS "192.168.31.185" /* server IP */
-#define PORT 8083
+#define PORT 8080
 #define MAX_INPUT_LENGTH 1024
-#define EXIT_COMMAND "exit"
+#define EXIT_COMMAND "salir"
 
 char buf_rx[MAX_INPUT_LENGTH];
 
@@ -20,62 +20,99 @@ int main()
     int sockfd;
     struct sockaddr_in servaddr;
 
-    /* Socket creation */
+    /* Creacion del Socket */
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1)
     {
-        printf("CLIENT: socket creation failed...\n");
+        printf("CLIENTE: error al crear el socket...\n");
         return -1;
     }
     else
     {
-        printf("CLIENT: Socket successfully created..\n");
+        printf("CLIENTE: Socket creado correctamente..\n");
     }
 
     memset(&servaddr, 0, sizeof(servaddr));
 
-    /* assign IP, PORT */
+    /* asignar IP, PORT */
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr(SERVER_ADDRESS);
     servaddr.sin_port = htons(PORT);
 
-    /* try to connect the client socket to server socket */
+    /* Intentando conectar con el servidor */
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) != 0)
     {
-        printf("connection with the server failed...\n");
+        printf("Conexion con el server fallida...\n");
+        printf("Saliendo del programa\n");
         return -1;
     }
 
-    printf("connected to the server..\n");
+    printf("Conectado con el servidor..\n");
 
     while (true)
     {
-        /* Get user input */
-        printf("Enter data to send to the server (or type 'exit' to quit): ");
+        printf("Introduce: 'IpPuerta-Usuario-Contraseña' ponlo separado con el - (o introduce 'salir' para terminar): ");
         char user_input[MAX_INPUT_LENGTH];
         fgets(user_input, sizeof(user_input), stdin);
-
-        /* Remove trailing newline character from user input */
         user_input[strcspn(user_input, "\n")] = '\0';
-	printf("Write: Received: %s \n", user_input);
-	if (strcmp(user_input, EXIT_COMMAND) == 0)
+        printf("Has escrito: %s \n", user_input);
+
+        if (strcmp(user_input, EXIT_COMMAND) == 0)
         {
-            printf("Exiting the client...\n");
-            break; // Exit the loop
+            printf("Saliendo del programa... \n");
+            /* Cerrar el socket */
+            close(sockfd);
+            return 0;
         }
-        /* Send user input to the server */
+		
+        /* Enviar daros al servidor */
         write(sockfd, user_input, strlen(user_input));
 
-        /* Check if the user wants to exit */
-        
-
-        /* Receive and print server response */
+        /* Respuesta del servidor */
         read(sockfd, buf_rx, sizeof(buf_rx));
-        printf("CLIENT: Received: %s \n", buf_rx);
+        //printf("CLiente: Recivo del server: %s \n", buf_rx);
+
+        /* Check if the user provided correct credentials */
+        if (strcmp(buf_rx, "Logg y UDP correctos") == 0)
+        {
+            printf("Bienvenido. Puedes abrir la puerta o cerrar la sesión.\n");
+            int x = 0;
+            while (x==0)
+            {
+                printf("Opciones: 'abrir puerta', 'cerrar sesion': ");
+                fgets(user_input, sizeof(user_input), stdin);
+                user_input[strcspn(user_input, "\n")] = '\0';
+                /* Enviar daros al servidor */
+                if (strcmp(user_input, "abrir puerta") == 0 || strcmp(user_input, "cerrar sesion") == 0 )
+                {
+		        write(sockfd, user_input, strlen(user_input));
+
+		        /* Respuesta del servidor */
+		        read(sockfd, buf_rx, sizeof(buf_rx));
+		        
+		        /* Si quieres abrir la puerta*/
+		        if (strcmp(buf_rx, "puerta abierta") == 0)
+		        {
+		            printf("Puerta abierta. \n");
+		        }
+		        else if (strcmp(buf_rx, "sesion cerrada") == 0)
+		        {
+		            printf("Sesión cerrada. Volviendo al inicio...\n");
+		            x=1;
+		        }     
+                }else{
+                	printf("Error al escribir la opcion.\n");
+                }
+                
+                //printf("CLiente: Recivo del server: %s \n", buf_rx);
+
+            }
+        }else{
+            printf("Error al escribir 'IpPuerta-Usuario-Contraseña'. \n");
+        }
     }
 
-    /* Close the socket */
+    /* Cerrar el socket */
     close(sockfd);
-
     return 0;
 }
